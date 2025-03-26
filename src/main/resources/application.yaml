@@ -1,5 +1,5 @@
 server:
-  port: 8080
+  port: 8081
   servlet:
     context-path: /identity
 
@@ -13,3 +13,5 @@ spring:
     hibernate:
       ddl-auto: update
     show-sql: true
+jwt:
+  signerKey: "ZSHNrjFGHzvUebjsJ7IE4/F94AGmze7YZY6Ix1WCGO1xA7uYfPd1ALBI4I9Ez+wD"
