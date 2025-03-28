@@ -28,11 +28,13 @@ public class SecurityConfig {
     public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
         http.authorizeHttpRequests(request ->
                 request.requestMatchers(HttpMethod.POST,PUBLIC_ENDPOINT).permitAll()
-                        .requestMatchers(HttpMethod.GET,"/user").hasAuthority("SCOPE_ADMIN")
                         .anyRequest().authenticated());
         http.oauth2ResourceServer(oauth2 ->
-                oauth2.jwt(jwtConfigurer -> jwtConfigurer.decoder(jwtDecoder())
-                        .jwtAuthenticationConverter(jwtAuthenticationConverter()))
+                oauth2.jwt(jwtConfigurer ->
+                        jwtConfigurer.decoder(jwtDecoder())
+                            .jwtAuthenticationConverter(jwtAuthenticationConverter()))
+                        .authenticationEntryPoint(new JwtAuthenticationEntryPoint())
+                //loi 401 xay ra o tren tang filter, chua vao den service nen globalHandlerException khong bat duoc, su dung authenticationEntryPoint de bat loi
         );
         http.csrf(AbstractHttpConfigurer::disable);
         return http.build();
@@ -55,6 +57,7 @@ public class SecurityConfig {
     }
     @Bean
     PasswordEncoder passwordEncoder(){
+
         return new BCryptPasswordEncoder(10);
     }
 
