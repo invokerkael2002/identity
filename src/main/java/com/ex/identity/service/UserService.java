@@ -4,6 +4,7 @@ import com.ex.identity.dto.request.UserCreation;
 import com.ex.identity.dto.request.UserUpdate;
 import com.ex.identity.dto.response.UserResponse;
 import com.ex.identity.entity.User;
+import com.ex.identity.enums.Role;
 import com.ex.identity.exception.AppException;
 import com.ex.identity.exception.ErrorCode;
 import com.ex.identity.mapper.UserMapper;
@@ -20,6 +21,7 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
 import java.security.cert.X509Certificate;
+import java.util.HashSet;
 import java.util.List;
 
 @Service
@@ -28,6 +30,7 @@ import java.util.List;
 public class UserService {
     UserRepository userRepository;
     UserMapper userMapper;
+    PasswordEncoder passwordEncoder;
 
     public List<UserResponse> getAllUsers() {
        return userRepository.findAll().stream().map(userMapper::toUserResponse).toList();
@@ -40,8 +43,10 @@ public class UserService {
     public UserResponse createUser(UserCreation request) {
 
         User user = userMapper.toUser(request);
-        PasswordEncoder passwordEncoder = new BCryptPasswordEncoder(10);
         user.setPassword(passwordEncoder.encode(user.getPassword()));
+        HashSet<String> roles = new HashSet<>();
+        roles.add(Role.USER.name());
+        user.setRoles(roles);
         try {
             user = userRepository.save(user);
         } catch (DataIntegrityViolationException exception) {
