@@ -6,6 +6,7 @@ import lombok.Data;
 import lombok.experimental.FieldDefaults;
 
 import java.time.LocalDate;
+import java.util.Set;
 
 @Data
 @FieldDefaults(level = AccessLevel.PRIVATE)
@@ -16,4 +17,5 @@ public class UserUpdate {
     String firstName;
     String lastName;
     LocalDate dob;
+    Set<String> roles;
 }

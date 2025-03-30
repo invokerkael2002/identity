@@ -1,7 +1,9 @@
 package com.ex.identity.configuration;
 
+import com.ex.identity.constant.PredefinedRole;
+import com.ex.identity.entity.Role;
 import com.ex.identity.entity.User;
-import com.ex.identity.enums.Role;
+import com.ex.identity.repository.RoleRepository;
 import com.ex.identity.repository.UserRepository;
 import lombok.AccessLevel;
 import lombok.RequiredArgsConstructor;
@@ -20,12 +22,16 @@ import java.util.HashSet;
 @Slf4j
 public class ApplicationInitConfig {
     PasswordEncoder passwordEncoder;
+    RoleRepository roleRepository;
     @Bean
     ApplicationRunner applicationRunner(UserRepository userRepository){
         return args -> {
          if (userRepository.findUserByUsername("admin@gmail.com").isEmpty()){
-                var roles = new HashSet<String>();
-                roles.add(Role.ADMIN.name());
+                var roles = new HashSet<Role>();
+             Role adminRole = roleRepository.save(Role.builder()
+                     .name(PredefinedRole.ADMIN_ROLE)
+                     .description("Admin role")
+                     .build());
                 User user = User.builder()
                         .username("admin@gmail.com")
                         .password(passwordEncoder.encode("123456"))

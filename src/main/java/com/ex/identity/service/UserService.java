@@ -8,9 +8,8 @@ import com.ex.identity.enums.Role;
 import com.ex.identity.exception.AppException;
 import com.ex.identity.exception.ErrorCode;
 import com.ex.identity.mapper.UserMapper;
+import com.ex.identity.repository.RoleRepository;
 import com.ex.identity.repository.UserRepository;
-import jakarta.annotation.PostConstruct;
-import jakarta.annotation.PreDestroy;
 import lombok.AccessLevel;
 import lombok.RequiredArgsConstructor;
 import lombok.experimental.FieldDefaults;
@@ -19,22 +18,17 @@ import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.security.access.prepost.PostAuthorize;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.context.SecurityContextHolder;
-import org.springframework.security.crypto.bcrypt.BCrypt;
-import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
-
-import java.security.cert.X509Certificate;
 import java.util.HashSet;
 import java.util.List;
-import java.util.Optional;
-
 @Service
 @RequiredArgsConstructor
 @FieldDefaults(level = AccessLevel.PRIVATE, makeFinal = true)
 @Slf4j
 public class UserService {
     UserRepository userRepository;
+    RoleRepository roleRepository;
     UserMapper userMapper;
     PasswordEncoder passwordEncoder;
     @PreAuthorize("hasRole('ADMIN')")
@@ -60,7 +54,7 @@ public class UserService {
         user.setPassword(passwordEncoder.encode(user.getPassword()));
         HashSet<String> roles = new HashSet<>();
         roles.add(Role.USER.name());
-        user.setRoles(roles);
+//        user.setRoles(roles);
         try {
             user = userRepository.save(user);
         } catch (DataIntegrityViolationException exception) {
@@ -70,10 +64,13 @@ public class UserService {
         return userMapper.toUserResponse(user);
     }
 
-    public UserResponse updateUser(Long id, UserUpdate userUpdate) {
+    public UserResponse updateUser(Long id, UserUpdate request) {
         User user = userRepository.findById(id).orElseThrow(() -> new AppException(ErrorCode.USER_NOT_EXISTED));
-        userMapper.updateUser(user, userUpdate);
-        return userMapper.toUserResponse(user);
+        userMapper.updateUser(user, request);
+        user.setPassword(passwordEncoder.encode(request.getPassword()));
+        var roles = roleRepository.findAllById(request.getRoles());
+        user.setRoles(new HashSet<>(roles));
+        return userMapper.toUserResponse(userRepository.save(user));
     }
 
     public void deleteUser(Long id) {
