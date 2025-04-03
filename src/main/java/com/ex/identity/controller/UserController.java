@@ -6,6 +6,7 @@ import com.ex.identity.dto.response.ApiResponse;
 import com.ex.identity.dto.response.UserResponse;
 
 import com.ex.identity.service.UserService;
+import jakarta.validation.Valid;
 import lombok.AccessLevel;
 import lombok.RequiredArgsConstructor;
 import lombok.experimental.FieldDefaults;
@@ -26,7 +27,6 @@ import java.util.List;
 public class UserController {
     UserService userService;
     @GetMapping()
-    @PreAuthorize("hasRole('ADMIN')")
     public ApiResponse<List<UserResponse>> getAllUsers(){
         var authentication = SecurityContextHolder.getContext().getAuthentication();
         log.info("username: {}",authentication.getName());
@@ -48,7 +48,7 @@ public class UserController {
                 .build();
     }
     @PostMapping()
-    public ApiResponse<UserResponse> createUser(@RequestBody UserCreation request){
+    public ApiResponse<UserResponse> createUser(@Valid @RequestBody UserCreation request){
         return ApiResponse.<UserResponse>builder()
                 .result(userService.createUser(request))
                 .build();

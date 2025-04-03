@@ -1,10 +1,10 @@
 package com.ex.identity.service;
 
+import com.ex.identity.constant.PredefinedRole;
 import com.ex.identity.dto.request.UserCreation;
 import com.ex.identity.dto.request.UserUpdate;
 import com.ex.identity.dto.response.UserResponse;
 import com.ex.identity.entity.User;
-import com.ex.identity.enums.Role;
 import com.ex.identity.exception.AppException;
 import com.ex.identity.exception.ErrorCode;
 import com.ex.identity.mapper.UserMapper;
@@ -53,7 +53,7 @@ public class UserService {
         User user = userMapper.toUser(request);
         user.setPassword(passwordEncoder.encode(user.getPassword()));
         HashSet<String> roles = new HashSet<>();
-        roles.add(Role.USER.name());
+        roles.add(PredefinedRole.USER_ROLE);
 //        user.setRoles(roles);
         try {
             user = userRepository.save(user);

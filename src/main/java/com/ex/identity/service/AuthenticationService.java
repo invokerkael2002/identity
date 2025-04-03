@@ -2,11 +2,14 @@ package com.ex.identity.service;
 
 import com.ex.identity.dto.request.AuthenticationRequest;
 import com.ex.identity.dto.request.IntrospectRequest;
+import com.ex.identity.dto.request.LogoutRequest;
 import com.ex.identity.dto.response.AuthenticationResponse;
 import com.ex.identity.dto.response.IntrospectResponse;
+import com.ex.identity.entity.InvalidatedToken;
 import com.ex.identity.entity.User;
 import com.ex.identity.exception.AppException;
 import com.ex.identity.exception.ErrorCode;
+import com.ex.identity.repository.InvalidateRepository;
 import com.ex.identity.repository.UserRepository;
 import com.nimbusds.jose.*;
 import com.nimbusds.jose.crypto.MACSigner;
@@ -14,7 +17,6 @@ import com.nimbusds.jose.crypto.MACVerifier;
 import com.nimbusds.jwt.JWTClaimsSet;
 import com.nimbusds.jwt.SignedJWT;
 import lombok.AccessLevel;
-import lombok.AllArgsConstructor;
 import lombok.RequiredArgsConstructor;
 import lombok.experimental.FieldDefaults;
 import lombok.experimental.NonFinal;
@@ -31,6 +33,7 @@ import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.Date;
 import java.util.StringJoiner;
+import java.util.UUID;
 
 @Service
 @RequiredArgsConstructor
@@ -40,22 +43,23 @@ public class AuthenticationService {
     @NonFinal
     @Value("${jwt.signerKey}")
     protected String SIGNER_KEY;
-
     UserRepository userRepository;
+    InvalidateRepository invalidateRepository;
     public IntrospectResponse introspect(IntrospectRequest request) throws JOSEException, ParseException {
         var token = request.getToken();
-        JWSVerifier verifier = new MACVerifier(SIGNER_KEY.getBytes());
 
-        SignedJWT signedJWT = SignedJWT.parse(token);
-
-        var verified = signedJWT.verify(verifier);
-
-        Date expiryTime = signedJWT.getJWTClaimsSet().getExpirationTime();
-
+        try {
+            verifyToken(token);
+        } catch (AppException e){
         return IntrospectResponse.builder()
-                .valid(verified && expiryTime.after(new Date()))
+                .valid(false)
+                .build();
+        }
+        return IntrospectResponse.builder()
+                .valid(true)
                 .build();
     }
+
     public AuthenticationResponse authenticated(AuthenticationRequest authenticationRequest){
         User user = userRepository.findUserByUsername(authenticationRequest.getUsername()).orElseThrow(()->new AppException(ErrorCode.USER_NOT_EXISTED));
         PasswordEncoder passwordEncoder = new BCryptPasswordEncoder(10);
@@ -77,6 +81,7 @@ public class AuthenticationService {
                 .issueTime(new Date())
                 .expirationTime(new Date(
                         Instant.now().plus(1, ChronoUnit.HOURS).toEpochMilli()))
+                .jwtID(UUID.randomUUID().toString())
                 .claim("scope",buildScope(user))
                 .build();
         Payload payload = new Payload(jwtClaimsSet.toJSONObject());
@@ -89,11 +94,40 @@ public class AuthenticationService {
             throw new RuntimeException(e);
         }
     }
+    public void logout(LogoutRequest request) throws ParseException, JOSEException {
+        var signerToken = verifyToken(request.getToken());
+
+        String jit = signerToken.getJWTClaimsSet().getJWTID();
+        Date expiryTime = signerToken.getJWTClaimsSet().getExpirationTime();
+
+        InvalidatedToken invalidatedToken = InvalidatedToken.builder()
+                .id(jit)
+                .expiryTime(expiryTime)
+                .build();
+        invalidateRepository.save(invalidatedToken);
+    }
+
+    private SignedJWT verifyToken(String token) throws JOSEException, ParseException {
+        JWSVerifier verifier = new MACVerifier(SIGNER_KEY.getBytes());
+
+        SignedJWT signedJWT = SignedJWT.parse(token);
+
+        var verified = signedJWT.verify(verifier);
+
+        Date expiryTime = signedJWT.getJWTClaimsSet().getExpirationTime();
+        if(verified && expiryTime.after(new Date()))
+            throw new AppException(ErrorCode.UNAUTHENTICATED);
+
+        if(invalidateRepository
+                .existsById(signedJWT.getJWTClaimsSet().getJWTID()))
+            throw new AppException(ErrorCode.UNAUTHENTICATED);
+        return signedJWT;
+    }
     private String buildScope(User user){
         StringJoiner stringJoiner = new StringJoiner(" ");
         if (!CollectionUtils.isEmpty(user.getRoles()))
         {            user.getRoles().forEach(role -> {
-            stringJoiner.add(role.getName());
+            stringJoiner.add("ROLE_"+role.getName());
             if(!CollectionUtils.isEmpty(role.getPermissions()))
                 role.getPermissions()
                         .forEach(permission -> stringJoiner.add(permission.getName()));
